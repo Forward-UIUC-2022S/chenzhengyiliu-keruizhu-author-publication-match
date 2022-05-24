@@ -1,0 +1,11 @@
+__pycache__/
+.vscode/
+author_pred/
+data/
+MAG_0919_CS/
+save_model/
+*.pickle
+*.gpickle
+*.json
+*.tsv
+*.pem
