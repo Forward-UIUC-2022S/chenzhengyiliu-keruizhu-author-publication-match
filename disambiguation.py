@@ -22,7 +22,7 @@ torch.manual_seed(42)
 class Net(torch.nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = GCNConv(600, 628)  # 384 for the embedding dim of text 
+        self.conv1 = GCNConv(768, 628)  # 384 for the embedding dim of text 
         self.conv2 = GCNConv(628, 64)
 
     def encode(self, x, pos_edge_index):
@@ -52,23 +52,23 @@ def get_link_labels(pos_edge_index, neg_edge_index):
 def train(graph, model, optimizer):
     model.train()
 
-    train_loader = NeighborLoader(data=graph, num_neighbors=[5, 10, 15], batch_size=128, 
+    train_loader = NeighborLoader(data=graph, num_neighbors=[5, 7, 10], batch_size=128, 
                                shuffle=True, num_workers=12, directed = False)
 
-    for sampled_data in train_loader:
-      pos_edge_index = sampled_data.edge_index
-      neg_edge_index = negative_sampling(edge_index=pos_edge_index,
-        num_nodes=sampled_data.num_nodes, num_neg_samples=pos_edge_index.size(1))
+    for sampled_data in tqdm(train_loader):
+        pos_edge_index = sampled_data.edge_index
+        neg_edge_index = negative_sampling(edge_index=pos_edge_index,
+            num_nodes=sampled_data.num_nodes, num_neg_samples=pos_edge_index.size(1))
 
-      optimizer.zero_grad()
-    
-      z = model.encode(sampled_data.x.float(), pos_edge_index)
-      edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
-      link_logits = model.decode(z, edge_index)
-      link_labels = get_link_labels(pos_edge_index, neg_edge_index)
-      loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
-      loss.backward()
-      optimizer.step()
+        optimizer.zero_grad()
+        
+        z = model.encode(sampled_data.x.float(), pos_edge_index)
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=-1)
+        link_logits = model.decode(z, edge_index)
+        link_labels = get_link_labels(pos_edge_index, neg_edge_index)
+        loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
+        loss.backward()
+        optimizer.step()
 
 
 @torch.no_grad()
@@ -107,20 +107,20 @@ def scoring_one_author(z, test_pair, name_to_idx):
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    with open("data/co_author_graph.pickle", "rb") as f:
+    with open("co_author_train.pickle", "rb") as f:
         G = pickle.load(f)
     
-    with open("data/name_to_idx.pickle", 'rb') as f:
-        name_to_idx = pickle.load(f)
+    # with open("data/name_to_idx.pickle", 'rb') as f:
+    #     name_to_idx = pickle.load(f)
 
-    graph = from_networkx(G, group_node_attrs=['embedding'])
+    graph = from_networkx(G, group_node_attrs=['emb'])
 
     model, graph = Net().to(device), graph.to(device)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
     
     Train = True
     if Train:
-        val_loader = NeighborLoader(data=graph, num_neighbors=[15, 10, 5], batch_size=524, 
+        val_loader = NeighborLoader(data=graph, num_neighbors=[10, 7, 5], batch_size=524, 
                                shuffle=True, num_workers=12, directed = False)
         it = iter(val_loader) 
 
@@ -134,14 +134,14 @@ if __name__ == "__main__":
                 best_score = acc
                 torch.save(model.state_dict(), "save_model/checkpoints.gcn")
 
-    model.load_state_dict(torch.load("save_model/checkpoints.gcn"))
-    model.eval()
-    # embedding all nodes on the graph
-    embeddings = model.encode(graph.x.float(), graph.edge_index)
+    # model.load_state_dict(torch.load("save_model/checkpoints.gcn"))
+    # model.eval()
+    # # embedding all nodes on the graph
+    # embeddings = model.encode(graph.x.float(), graph.edge_index)
 
-    with open("data/test_list.pickle", "rb") as f:
-        test_pairs = pickle.load(f)
+    # with open("data/test_list.pickle", "rb") as f:
+    #     test_pairs = pickle.load(f)
 
-    res = scoring_one_author(embeddings, test_pairs[0], name_to_idx)
+    # res = scoring_one_author(embeddings, test_pairs[0], name_to_idx)
 
-    print(f"test co-author prediction score: {res: .4f}")
+    # print(f"test co-author prediction score: {res: .4f}")
