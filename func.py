@@ -156,7 +156,7 @@ def index():
                 if target_author_magfid in id2idx:
                     target_author_emb = embeddings[id2idx[target_author_magfid]]
                     # Filter out coauthors not in the graph
-                    recognized_coauthors = [fname2magfids[a] for a in coauthors if a in fname2magfids]
+                    recognized_coauthors = [fname2magfids[a] for a in coauthors if a in fname2magfids and a != target_author_name]
                     trained_coauthors = [[id for id in coauthor_ids if sub_co_author_graph.has_node(id)] for coauthor_ids in recognized_coauthors]
                     trained_coauthors = [coauthor_ids for coauthor_ids in trained_coauthors if coauthor_ids]
                     if trained_coauthors:
